@@ -82,12 +82,7 @@ func (t *swcsp) SM2_Sign(ssHandle unsafe.Pointer, priv *ecdsa.PrivateKey, hash [
 	inData := ByteArrToSGD_UCHARArr(hash)
 	var inLen C.SGD_UINT32 = 32
 	hSessionHandle := C.SGD_HANDLE(ssHandle)
-	/*
-		rv = C.SDF_GenerateRandom(hSessionHandle, inLen, &inData[0])
-		if rv != C.SDR_OK {
-			fmt.Printf("gen random fail, rv = %x\n", rv)
-		}
-	*/
+
 	priKey.bits = 256
 	copy(priKey.D[:], ByteArrToUcharArr(priv.D.Bytes()))
 
@@ -224,7 +219,62 @@ func (t *swcsp) SM3_hmac(handle unsafe.Pointer, key, msg []byte) ([]byte, error)
 	fnlHsh, _ := t.SM3_HashFinal(handle)
 
 	return fnlHsh, nil
+}
 
+func (t *swcsp) SM2_MultAdd(handle unsafe.Pointer, k uint32, e *ecdsa.PrivateKey, a, b *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+	var rv C.SGD_RV
+	var aPbk, bPbk, cPbk C.struct_ECCrefPublicKey_st
+	var ePrk C.struct_ECCrefPrivateKey_st
+	hSessionHandle := C.SGD_HANDLE(handle)
+
+	ePrk.bits = 256
+	copy(ePrk.D[:], ByteArrToUcharArr(e.D.Bytes()))
+
+	copy(aPbk.x[:], ByteArrToUcharArr(a.X.Bytes()))
+	copy(aPbk.y[:], ByteArrToUcharArr(a.Y.Bytes()))
+	aPbk.bits = 256
+
+	copy(bPbk.x[:], ByteArrToUcharArr(b.X.Bytes()))
+	copy(bPbk.y[:], ByteArrToUcharArr(b.Y.Bytes()))
+	bPbk.bits = 256
+
+	rv = C.SDF_ECCMultAdd(hSessionHandle, C.SGD_UINT32(k), &ePrk, &aPbk, &bPbk, &cPbk)
+	if rv != C.SDR_OK {
+		return nil, fmt.Errorf("ECCMultAdd fails, rv = %#X\n", rv)
+	}
+
+	pubKey := new(ecdsa.PublicKey)
+
+	pubKey.X = new(big.Int).SetBytes(UcharArrToByteArr(cPbk.x[:]))
+	pubKey.Y = new(big.Int).SetBytes(UcharArrToByteArr(cPbk.y[:]))
+
+	return pubKey, nil
+
+}
+
+func (t *swcsp) SM2_ModMultAdd(handle unsafe.Pointer, k, a, b *ecdsa.PrivateKey) (*ecdsa.PrivateKey, error) {
+	var rv C.SGD_RV
+	var kPrk, aPrk, bPrk, cPrk C.struct_ECCrefPrivateKey_st
+	hSessionHandle := C.SGD_HANDLE(handle)
+
+	kPrk.bits = 256
+	copy(kPrk.D[:], ByteArrToUcharArr(k.D.Bytes()))
+
+	aPrk.bits = 256
+	copy(aPrk.D[:], ByteArrToUcharArr(a.D.Bytes()))
+
+	bPrk.bits = 256
+	copy(bPrk.D[:], ByteArrToUcharArr(b.D.Bytes()))
+
+	rv = C.SDF_ECCModMultAdd(hSessionHandle, &kPrk, &aPrk, &bPrk, &cPrk)
+	if rv != C.SDR_OK {
+		return nil, fmt.Errorf("ECCMultAdd fails, rv = %#X\n", rv)
+	}
+
+	priv := new(ecdsa.PrivateKey)
+
+	priv.D = new(big.Int).SetBytes(UcharArrToByteArr(cPrk.D[:]))
+	return priv, nil
 }
 
 /* util funcs */

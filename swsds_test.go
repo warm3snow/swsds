@@ -103,9 +103,8 @@ func Test_SM3_hmac(t *testing.T) {
 	}
 }
 
-/*
-func Test_SM2_multAdd(t *testing.T) {
-	hSess := csp.OpenSession()
+func Test_SM2_MultAdd(t *testing.T) {
+	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 
 	var err error
@@ -116,15 +115,15 @@ func Test_SM2_multAdd(t *testing.T) {
 	aPub := aPri.PublicKey
 	bPub := bPri.PublicKey
 
-	cPub, err := csp.SM2_multAdd(hSess, 0, ePri, &aPub, &bPub)
+	cPub, err := csp.SM2_MultAdd(hSess, 0, ePri, &aPub, &bPub)
 	if err != nil {
 		t.Error("MultAdd fail")
 	}
 	_ = cPub
 }
 
-func Test_SM2_modMultAdd(t *testing.T) {
-	hSess := csp.OpenSession()
+func Test_SM2_ModMultAdd(t *testing.T) {
+	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 
 	var err error
@@ -132,7 +131,7 @@ func Test_SM2_modMultAdd(t *testing.T) {
 	aPri, err := csp.SM2_GenKeyPair(hSess)
 	bPri, err := csp.SM2_GenKeyPair(hSess)
 
-	cPri, err := csp.SM2_modMultAdd(hSess, kPri, aPri, bPri)
+	cPri, err := csp.SM2_ModMultAdd(hSess, kPri, aPri, bPri)
 	if err != nil {
 		t.Error("ModMultAdd fail")
 	}
@@ -140,6 +139,7 @@ func Test_SM2_modMultAdd(t *testing.T) {
 
 }
 
+/*
 func Test_SM4_crypt_ecb(t *testing.T) {
 	key := []byte("123456123456")
 	msg := []byte("sansec")
