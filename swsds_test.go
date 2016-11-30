@@ -80,9 +80,8 @@ func Test_SM3_Hash(t *testing.T) {
 	}
 }
 
-/*
 func Test_SM3_hmac(t *testing.T) {
-	hSess := csp.OpenSession()
+	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 	var key []byte = []byte("key")
 	var msg1 []byte = []byte("sansec")
@@ -104,6 +103,7 @@ func Test_SM3_hmac(t *testing.T) {
 	}
 }
 
+/*
 func Test_SM2_multAdd(t *testing.T) {
 	hSess := csp.OpenSession()
 	defer csp.CloseSession(hSess)

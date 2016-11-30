@@ -191,7 +191,40 @@ func (t *swcsp) SM3_HashFinal(ssHandle unsafe.Pointer) ([]byte, error) {
 }
 
 func (t *swcsp) SM3_hmac(handle unsafe.Pointer, key, msg []byte) ([]byte, error) {
-	//TODO
+	blkLen := 64
+	var relKey []byte
+	if len(key) > 64 {
+		relKey, _ = t.SM3_Hash(handle, key)
+	}
+	copy(relKey, key)
+
+	var ipad, opad []byte
+	for i := 0; i < blkLen; i++ {
+		if i < len(relKey) {
+			ipad = append(ipad, relKey[i])
+			opad = append(opad, relKey[i])
+		} else {
+			ipad = append(ipad, []byte("0")[0])
+			opad = append(opad, []byte("0")[0])
+		}
+	}
+
+	for i := 0; i < blkLen; i++ {
+		ipad[i] ^= 0x36
+		opad[i] ^= 0x5c
+	}
+	t.SM3_HashInit(handle)
+	t.SM3_HashUpdate(handle, ipad)
+	t.SM3_HashUpdate(handle, msg)
+	tmpHsh, _ := t.SM3_HashFinal(handle)
+
+	t.SM3_HashInit(handle)
+	t.SM3_HashUpdate(handle, opad)
+	t.SM3_HashUpdate(handle, tmpHsh)
+	fnlHsh, _ := t.SM3_HashFinal(handle)
+
+	return fnlHsh, nil
+
 }
 
 /* util funcs */
