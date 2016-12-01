@@ -1,9 +1,13 @@
 package swsds
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 var csp *swcsp = NewSwcsp()
 
+/*
 func Test_OpenSession(t *testing.T) {
 	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
@@ -39,24 +43,6 @@ func Test_SM2_SignAndVerify(t *testing.T) {
 	}
 }
 
-/*
-func Test_SM4_EncAndDec(t *testing.T) {
-		    hSess := csp.OpenSession()
-			msg := []byte("sansec")
-
-			cpr := csp.SM4_Encrypt(hSess, msg)
-			pln := csp.SM4_Decrypt(hSess, cpr)
-
-			if len(pln) != len(msg) {
-				t.Error("SM4 err")
-			}
-			for i := 0; i < len(pln); i++ {
-				if msg[i] != pln[i] {
-					t.Error("SM4 decrypt err")
-				}
-			}
-}
-*/
 func Test_SM3_Hash(t *testing.T) {
 	var msg []byte = []byte("sansec")
 
@@ -136,19 +122,32 @@ func Test_SM2_ModMultAdd(t *testing.T) {
 		t.Error("ModMultAdd fail")
 	}
 	_ = cPri
-
-}
-
-/*
-func Test_SM4_crypt_ecb(t *testing.T) {
-	key := []byte("123456123456")
-	msg := []byte("sansec")
-	cpr := csp.SM4_crypt_ecb(key, msg)
-	if cpr == nil {
-		t.Error("SM4_crypt_ecb fail")
-	}
 }
 */
+
+func Test_SM4_crypt_EncAndDec(t *testing.T) {
+	key := []byte("1234567812345678")
+	msg := []byte("sansec")
+	cpr, _ := csp.SM4_crypt_enc(key, msg)
+	if cpr == nil {
+		t.Error("SM4_crypt_enc fail")
+	}
+	pln, _ := csp.SM4_crypt_dec(key, cpr)
+
+	if len(msg) != len(pln) {
+		fmt.Println("msg", msg)
+		fmt.Println("pln", pln)
+
+		t.Error("SM4_crypt_dec fail")
+	}
+
+	for i := 0; i < len(msg); i++ {
+		if msg[i] != pln[i] {
+			t.Error("Can't decrypt, error")
+		}
+	}
+}
+
 /*
 msg:  hello world, hello world
 hash:  [195 67 246 122 52 35 150 30 157 147 203 31 13 106 170 112 64 231 199 218 191 102 189 69 92 108 65 127 153 250 104 42]

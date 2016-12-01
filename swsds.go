@@ -1,12 +1,14 @@
 /*encapsalute sansec api in golang*/
 package swsds
 
-//#cgo LDFLAGS: -L ./ -lswsds
+//#cgo LDFLAGS: -L ./ -lswsds -lsm4
 //#include "./swsds.h"
+//#include "./sm4.h"
 import "C"
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -18,13 +20,17 @@ type swcsp struct {
 }
 
 func NewSwcsp() *swcsp {
+	return &swcsp{}
+}
+
+func (t *swcsp) OpenDevice() {
 	var hDeviceHandle C.SGD_HANDLE
 	rv := C.SDF_OpenDevice(&hDeviceHandle)
 	if rv != C.SDR_OK {
 		log.Panicf("OpenDevice fail, rv=%#X\n", rv)
 	}
 	hDevHdl := unsafe.Pointer(hDeviceHandle)
-	return &swcsp{hDev: hDevHdl}
+	t.hDev = hDevHdl
 }
 
 func (t *swcsp) CloseDevice() {
@@ -275,6 +281,78 @@ func (t *swcsp) SM2_ModMultAdd(handle unsafe.Pointer, k, a, b *ecdsa.PrivateKey)
 
 	priv.D = new(big.Int).SetBytes(UcharArrToByteArr(cPrk.D[:]))
 	return priv, nil
+}
+
+const (
+	SM4_ENCRYPT     = 1
+	SM4_DECRYPT     = 0
+	SMS4_BLOCK_SIZE = 16
+)
+
+//SM4_crypt_enc  use ECB
+func (t *swcsp) SM4_crypt_enc(key, msg []byte) ([]byte, error) {
+	var ctx C.sm4_context
+	if len(key) != SMS4_BLOCK_SIZE {
+		return nil, errors.New("key length must be 16bytes or 128bits")
+	}
+	var ckey []C.uchar
+	var res []byte
+
+	for i := 0; i < 16; i++ {
+		ckey = append(ckey, C.uchar(key[i]))
+	}
+
+	msgLen := len(msg)
+	padLen := (msgLen/SMS4_BLOCK_SIZE + 1) * 16
+
+	var pad []C.uchar
+	opt := make([]C.uchar, padLen)
+
+	for i := 0; i < padLen; i++ {
+		if i < msgLen {
+			pad = append(pad, C.uchar(msg[i]))
+		} else {
+			pad = append(pad, C.uchar(16-msgLen%16))
+		}
+	}
+
+	tmpLen := C.int(padLen)
+	C.sm4_setkey_enc(&ctx, &ckey[0])
+	C.sm4_crypt_ecb(&ctx, SM4_ENCRYPT, tmpLen, &pad[0], &opt[0])
+
+	for i := 0; i < len(opt); i++ {
+		res = append(res, byte(opt[i]))
+	}
+
+	return res, nil
+}
+func (t *swcsp) SM4_crypt_dec(key, msg []byte) ([]byte, error) {
+	var ctx C.sm4_context
+	if len(key) != SMS4_BLOCK_SIZE {
+		return nil, errors.New("key length must be 16bytes or 128bits")
+	}
+	var ckey, ipt []C.uchar
+	var res []byte
+
+	for i := 0; i < 16; i++ {
+		ckey = append(ckey, C.uchar(key[i]))
+	}
+
+	iptLen := len(msg)
+	opt := make([]C.uchar, iptLen)
+
+	for i := 0; i < iptLen; i++ {
+		ipt = append(ipt, C.uchar(msg[i]))
+	}
+
+	C.sm4_setkey_dec(&ctx, &ckey[0])
+	C.sm4_crypt_ecb(&ctx, SM4_DECRYPT, C.int(iptLen), &ipt[0], &opt[0])
+
+	for i := 0; i < iptLen; i++ {
+		res = append(res, byte(opt[i]))
+	}
+
+	return res[0 : iptLen-int(res[len(res)-1])], nil
 }
 
 /* util funcs */
