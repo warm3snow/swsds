@@ -43,7 +43,8 @@ func (t *swcsp) CloseDevice() {
 
 func (t *swcsp) OpenSession() (unsafe.Pointer, error) {
 	var hSessionHandle C.SGD_HANDLE
-	rv := C.SDF_OpenSession(t.hDev, &hSessionHandle)
+	hDeviceHandle := C.SGD_HANDLE(t.hDev)
+	rv := C.SDF_OpenSession(hDeviceHandle, &hSessionHandle)
 	if rv != C.SDR_OK {
 		return nil, fmt.Errorf("OpenSession fail, rv=%#X\n", rv)
 	}

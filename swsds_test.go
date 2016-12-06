@@ -5,10 +5,13 @@ import (
 	"testing"
 )
 
-var csp *swcsp = NewSwcsp()
+var csp *swcsp
 
-/*
-func Test_OpenSession(t *testing.T) {
+func init() {
+	csp = NewSwcsp()
+	csp.OpenDevice()
+}
+func Test_DeviceAndSession(t *testing.T) {
 	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 }
@@ -123,7 +126,6 @@ func Test_SM2_ModMultAdd(t *testing.T) {
 	}
 	_ = cPri
 }
-*/
 
 func Test_SM4_crypt_EncAndDec(t *testing.T) {
 	key := []byte("1234567812345678")
