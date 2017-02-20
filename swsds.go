@@ -22,7 +22,6 @@ type swcsp struct {
 func NewSwcsp() *swcsp {
 	return &swcsp{}
 }
-
 func (t *swcsp) OpenDevice() {
 	var hDeviceHandle C.SGD_HANDLE
 	rv := C.SDF_OpenDevice(&hDeviceHandle)
@@ -228,24 +227,22 @@ func (t *swcsp) SM3_hmac(handle unsafe.Pointer, key, msg []byte) ([]byte, error)
 	return fnlHsh, nil
 }
 
-func (t *swcsp) SM2_MultAdd(handle unsafe.Pointer, k uint32, e *ecdsa.PrivateKey, a, b *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+//SM2_MultAdd C = eA + B
+func (t *swcsp) SM2_MultAdd(handle unsafe.Pointer, e *ecdsa.PrivateKey, a, b *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
 	var rv C.SGD_RV
 	var aPbk, bPbk, cPbk C.struct_ECCrefPublicKey_st
 	var ePrk C.struct_ECCrefPrivateKey_st
 	hSessionHandle := C.SGD_HANDLE(handle)
 
-	ePrk.bits = 256
 	copy(ePrk.D[:], ByteArrToUcharArr(e.D.Bytes()))
 
 	copy(aPbk.x[:], ByteArrToUcharArr(a.X.Bytes()))
 	copy(aPbk.y[:], ByteArrToUcharArr(a.Y.Bytes()))
-	aPbk.bits = 256
 
 	copy(bPbk.x[:], ByteArrToUcharArr(b.X.Bytes()))
 	copy(bPbk.y[:], ByteArrToUcharArr(b.Y.Bytes()))
-	bPbk.bits = 256
 
-	rv = C.SDF_ECCMultAdd(hSessionHandle, C.SGD_UINT32(k), &ePrk, &aPbk, &bPbk, &cPbk)
+	rv = C.SDF_ECCMultAdd(hSessionHandle, C.SGD_UINT32(0), &ePrk, &aPbk, &bPbk, &cPbk)
 	if rv != C.SDR_OK {
 		return nil, fmt.Errorf("ECCMultAdd fails, rv = %#X\n", rv)
 	}
@@ -256,31 +253,55 @@ func (t *swcsp) SM2_MultAdd(handle unsafe.Pointer, k uint32, e *ecdsa.PrivateKey
 	pubKey.Y = new(big.Int).SetBytes(UcharArrToByteArr(cPbk.y[:]))
 
 	return pubKey, nil
-
 }
 
-func (t *swcsp) SM2_ModMultAdd(handle unsafe.Pointer, k, a, b *ecdsa.PrivateKey) (*ecdsa.PrivateKey, error) {
+//SM2_ModMultAdd C = (A + B) Mod n
+func (t *swcsp) SM2_ModMultAdd(handle unsafe.Pointer, a, b *ecdsa.PrivateKey) (*ecdsa.PrivateKey, error) {
+	if a == nil || b == nil {
+		return nil, errors.New("A and B can't be nil")
+	}
 	var rv C.SGD_RV
-	var kPrk, aPrk, bPrk, cPrk C.struct_ECCrefPrivateKey_st
+	var aPrk, bPrk, cPrk C.struct_ECCrefPrivateKey_st
 	hSessionHandle := C.SGD_HANDLE(handle)
 
-	kPrk.bits = 256
-	copy(kPrk.D[:], ByteArrToUcharArr(k.D.Bytes()))
+	/*
+	    kPrk.bits = 256
+	    copy(kPrk.D[:], ByteArrToUcharArr(k.D.Bytes()))
 
+	   fmt.Println("len(a.D.bytes)", len(a.D.Bytes()))
+	   fmt.Println("a.D.bytes", a.D.Bytes())
+
+	    fmt.Println("a", a.D.Bytes())
+	    aPrk.bits = 256
+	    aBin, _ := Data_Txt2Bin([]byte(fmt.Sprintf("%x", a.D.Bytes())))
+	    copy(aPrk.D[:], aBin)
+	    bPrk.bits = 256
+	    bBin, _ := Data_Txt2Bin([]byte(fmt.Sprintf("%x", b.D.Bytes())))
+	    copy(bPrk.D[:], bBin)
+	*/
 	aPrk.bits = 256
 	copy(aPrk.D[:], ByteArrToUcharArr(a.D.Bytes()))
-
 	bPrk.bits = 256
 	copy(bPrk.D[:], ByteArrToUcharArr(b.D.Bytes()))
 
-	rv = C.SDF_ECCModMultAdd(hSessionHandle, &kPrk, &aPrk, &bPrk, &cPrk)
+	fmt.Println("aPrk", aPrk)
+	fmt.Println("bPrk", bPrk)
+	/*
+			   fmt.Println("a.D len", len(a.D.Bytes()))
+			   fmt.Println("b.D len", len(b.D.Bytes()))
+		       fmt.Println("bits", aPrk.bits, bPrk.bits)
+	*/
+	rv = C.SDF_ECCModMultAdd(hSessionHandle, nil, &aPrk, &bPrk, &cPrk)
 	if rv != C.SDR_OK {
 		return nil, fmt.Errorf("ECCMultAdd fails, rv = %#X\n", rv)
+	} else {
+		//TODO not passed, cPrk always be empty
+		fmt.Println("cPrk", cPrk)
 	}
 
 	priv := new(ecdsa.PrivateKey)
-
 	priv.D = new(big.Int).SetBytes(UcharArrToByteArr(cPrk.D[:]))
+
 	return priv, nil
 }
 
@@ -299,12 +320,12 @@ func (t *swcsp) SM4_crypt_enc(key, msg []byte) ([]byte, error) {
 	var ckey []C.uchar
 	var res []byte
 
-	for i := 0; i < 16; i++ {
+	for i := 0; i < SMS4_BLOCK_SIZE; i++ {
 		ckey = append(ckey, C.uchar(key[i]))
 	}
 
 	msgLen := len(msg)
-	padLen := (msgLen/SMS4_BLOCK_SIZE + 1) * 16
+	padLen := (msgLen/SMS4_BLOCK_SIZE + 1) * SMS4_BLOCK_SIZE
 
 	var pad []C.uchar
 	opt := make([]C.uchar, padLen)
@@ -313,7 +334,7 @@ func (t *swcsp) SM4_crypt_enc(key, msg []byte) ([]byte, error) {
 		if i < msgLen {
 			pad = append(pad, C.uchar(msg[i]))
 		} else {
-			pad = append(pad, C.uchar(16-msgLen%16))
+			pad = append(pad, C.uchar(SMS4_BLOCK_SIZE-msgLen%SMS4_BLOCK_SIZE))
 		}
 	}
 
@@ -392,4 +413,32 @@ func SGD_UCHARArrToByteArr(buf []C.SGD_UCHAR) []byte {
 		ret = append(ret, byte(buf[i]))
 	}
 	return ret
+}
+func Data_Txt2Bin(txtData []byte) (binData []C.uchar, err error) {
+	if len(txtData)%2 == 1 {
+		return nil, errors.New("txtData must be 2 multiple")
+	}
+	binDataLen := len(txtData) >> 1
+
+	k := 0
+	for i := 0; i < binDataLen; i++ {
+		var t uint8 = 0
+		if txtData[k] < 'A' {
+			t = txtData[k] - '0'
+		} else {
+			t = txtData[k] - 'A' + 10
+		}
+
+		t <<= 4
+		k++
+
+		if txtData[k] < 'A' {
+			t += txtData[k] - '0'
+		} else {
+			t += txtData[k] - 'A' + 10
+		}
+		k++
+		binData = append(binData, C.uchar(t))
+	}
+	return binData, nil
 }

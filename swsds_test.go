@@ -1,17 +1,15 @@
 package swsds
 
-import (
-	"fmt"
-	"testing"
-)
+import "testing"
 
-var csp *swcsp
+var csp Crypto
 
 func init() {
 	csp = NewSwcsp()
 	csp.OpenDevice()
 }
-func Test_DeviceAndSession(t *testing.T) {
+
+/*func Test_DeviceAndSession(t *testing.T) {
 	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 }
@@ -104,29 +102,63 @@ func Test_SM2_MultAdd(t *testing.T) {
 	aPub := aPri.PublicKey
 	bPub := bPri.PublicKey
 
-	cPub, err := csp.SM2_MultAdd(hSess, 0, ePri, &aPub, &bPub)
+	cPub, err := csp.SM2_MultAdd(hSess, ePri, &aPub, &bPub)
 	if err != nil {
 		t.Error("MultAdd fail")
 	}
 	_ = cPub
 }
+func Benchmark_SM2_ModMultAdd(b *testing.B) {
+	hSess, _ := csp.OpenSession()
+	defer csp.CloseSession(hSess)
+		aPri, err := csp.SM2_GenKeyPair(hSess)
+		if err != nil {
+			b.Error(err)
+		}
+		bPri, err := csp.SM2_GenKeyPair(hSess)
+		if err != nil {
+			b.Error(err)
+		}
+		cPri, err := csp.SM2_ModMultAdd(hSess, aPri, bPri)
+		if err != nil {
+			b.Error(err)
+		}
+		_ = cPri
+	}
+}
 
+*/
 func Test_SM2_ModMultAdd(t *testing.T) {
 	hSess, _ := csp.OpenSession()
 	defer csp.CloseSession(hSess)
 
 	var err error
-	kPri, err := csp.SM2_GenKeyPair(hSess)
 	aPri, err := csp.SM2_GenKeyPair(hSess)
-	bPri, err := csp.SM2_GenKeyPair(hSess)
-
-	cPri, err := csp.SM2_ModMultAdd(hSess, kPri, aPri, bPri)
 	if err != nil {
-		t.Error("ModMultAdd fail")
+		t.Error(err)
 	}
+	t.Log("aPri.D", aPri.D)
+	bPri, err := csp.SM2_GenKeyPair(hSess)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("bPri.D", bPri.D)
+
+	/*
+		aPri, bPri := new(ecdsa.PrivateKey), new(ecdsa.PrivateKey)
+		aPri.D, _ = new(big.Int).SetString("0717300514688552599685228064015849944438029799700315748216576065320982", 10)
+		bPri.D, _ = new(big.Int).SetString("15891397270839149416983174565732741266443072436586274829147058492915", 10)
+
+	*/
+	cPri, err := csp.SM2_ModMultAdd(hSess, aPri, bPri)
+	if err != nil {
+		t.Error(err)
+	}
+
 	_ = cPri
 }
 
+/*
 func Test_SM4_crypt_EncAndDec(t *testing.T) {
 	key := []byte("1234567812345678")
 	msg := []byte("sansec")
@@ -149,6 +181,10 @@ func Test_SM4_crypt_EncAndDec(t *testing.T) {
 		}
 	}
 }
+*/
+func Test_Close(t *testing.T) {
+	csp.CloseDevice()
+}
 
 /*
 msg:  hello world, hello world
@@ -159,4 +195,17 @@ Y:  3579336333986994787125356962138736758359030708665150999359108283664854301272
 r:  21779111779685509038872927360013300214564093712045271632247014149709540297545159959367291323906847926743829456856698
 s:  7696660709777259717489567807873733678903414136728780938898212388762710735375873038673985898514281428606944926001041
 Verify Result:  true
+*/
+/*
+=== RUN   Test_SM2_ModMultAdd
+aPrk {256 [243 122 172 225 31 95 254 223 111 208 158 29 22 105 235 203 200 250 108 253 229 193 58 9 30 72 36 231 251 250 184 22]}
+bPrk {256 [3 172 123 13 92 75 105 209 177 216 48 178 128 199 147 8 12 16 109 231 18 28 131 9 205 41 231 182 199 192 85 243]}
+cPrk {0 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]}
+--- PASS: Test_SM2_ModMultAdd (0.01s)
+	swsds_test.go:140: aPri.D 110128770717300514688552599685228064015849944438029799700315748216576065320982
+	swsds_test.go:145: bPri.D 1661685515891397270839149416983174565732741266443072436586274829147058492915
+=== RUN   Test_Close
+--- PASS: Test_Close (0.00s)
+PASS
+ok  	github.com/warm3snow/swsds	0.105s
 */
